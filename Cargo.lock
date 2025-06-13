@@ -62,7 +62,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "serialize",
  "tokio",
 ]
 
@@ -233,14 +232,6 @@ dependencies = [
  "memchr",
  "ryu",
  "serde",
-]
-
-[[package]]
-name = "serialize"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
 ]
 
 [[package]]

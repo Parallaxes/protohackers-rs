@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 pub async fn run() -> std::io::Result<()> {
     let listener = TcpListener::bind("0.0.0.0:4040").await?;
-    println!("Server listening on 0.0.0.0:4040");
+    println!("Server listening port 0.0.0.0:4040");
 
     loop {
         let (socket, addr) = listener.accept().await?;

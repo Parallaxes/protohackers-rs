@@ -2,6 +2,7 @@ use std::env;
 
 mod challenge01;
 mod challenge02;
+mod challenge03;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -11,6 +12,7 @@ async fn main() -> std::io::Result<()> {
     match challenge.as_str() {
         "1" => challenge01::run().unwrap(),
         "2" => challenge02::run().await?,
+        "3" => challenge03::run().await?,
         _ => panic!(),
     }
 
