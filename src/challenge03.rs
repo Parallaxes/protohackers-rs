@@ -1,8 +1,8 @@
-use tokio::net::{TcpListener, TcpStream};
-use tokio::io::{AsyncWriteExt, AsyncReadExt};
+use byteorder::{BigEndian, ByteOrder};
 use std::collections::BTreeMap;
 use std::io::Result;
-use byteorder::{BigEndian, ByteOrder};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpListener, TcpStream};
 
 pub async fn run() -> Result<()> {
     let listener = TcpListener::bind("0.0.0.0:4040").await?;
@@ -38,13 +38,24 @@ pub async fn run() -> Result<()> {
     }
 }
 
-async fn handle_client(data: &[u8], stream: &mut TcpStream, db: &mut BTreeMap<i32, i32>) -> Result<()>{
+async fn handle_client(
+    data: &[u8],
+    stream: &mut TcpStream,
+    db: &mut BTreeMap<i32, i32>,
+) -> Result<()> {
     route_request(data, stream, db).await
 }
 
-async fn route_request(data: &[u8], stream: &mut TcpStream, db: &mut BTreeMap<i32, i32>) -> Result<()> {
+async fn route_request(
+    data: &[u8],
+    stream: &mut TcpStream,
+    db: &mut BTreeMap<i32, i32>,
+) -> Result<()> {
     if data.len() != 9 {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid message length"));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Invalid message length",
+        ));
     }
 
     println!("Request: {:?}", data);
@@ -66,7 +77,10 @@ async fn route_request(data: &[u8], stream: &mut TcpStream, db: &mut BTreeMap<i3
             stream.write_all(&response).await?;
         }
         _ => {
-            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid command"));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Invalid command",
+            ));
         }
     }
 
@@ -86,9 +100,5 @@ fn computer_mean(mintime: i32, maxtime: i32, db: &BTreeMap<i32, i32>) -> i32 {
         cnt += 1;
     }
 
-    if cnt == 0 {
-        0
-    } else {
-        (sum / cnt) as i32
-    }
+    if cnt == 0 { 0 } else { (sum / cnt) as i32 }
 }

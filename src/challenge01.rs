@@ -1,5 +1,5 @@
-use std::net::{TcpListener, TcpStream};
 use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
 use std::thread;
 
 pub fn run() -> std::io::Result<()> {

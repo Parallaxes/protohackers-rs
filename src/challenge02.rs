@@ -1,6 +1,6 @@
-use tokio::net::{TcpListener, TcpStream};
-use tokio::io::{BufReader, AsyncBufReadExt, AsyncWriteExt};
 use serde::{Deserialize, Serialize};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::{TcpListener, TcpStream};
 
 pub async fn run() -> std::io::Result<()> {
     let listener = TcpListener::bind("0.0.0.0:4040").await?;
@@ -70,7 +70,10 @@ async fn handle_request(data: &[u8], stream: &mut TcpStream) -> std::io::Result<
         Err(_) => {
             // Send malformed response with newline and return error to close connection
             stream.write_all(b"{\"answer\":\"Malformed\"}\n").await?;
-            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid UTF-8"));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Invalid UTF-8",
+            ));
         }
     };
 
@@ -84,7 +87,10 @@ async fn handle_request(data: &[u8], stream: &mut TcpStream) -> std::io::Result<
         Err(Answer::Malformed) => {
             // Malformed response, then close connection
             stream.write_all(b"{\"answer\":\"Malformed\"}\n").await?;
-            Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Malformed request"))
+            Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Malformed request",
+            ))
         }
     }
 }
