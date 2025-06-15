@@ -1,124 +1,94 @@
 use tokio::net::{TcpListener, TcpStream};
-use tokio::io::{BufReader, AsyncBufReadExt, AsyncWriteExt};
+use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use std::collections::BTreeMap;
-use tokio::sync::Mutex;
-use std::sync::Arc;
+use std::io::Result;
+use byteorder::{BigEndian, ByteOrder};
 
-pub async fn run() -> std::io::Result<()> {
+pub async fn run() -> Result<()> {
     let listener = TcpListener::bind("0.0.0.0:4040").await?;
     println!("Server listening on port 4040");
-
-    let database = Arc::new(Mutex::new(BTreeMap::new()));
 
     loop {
         let (socket, addr) = listener.accept().await?;
         println!("New connection from {}", addr);
 
-        let db = Arc::clone(&database);
-
         tokio::spawn(async move {
-            let mut reader = BufReader::new(socket);
-            let mut line = String::new();
+            let mut database = BTreeMap::new();
+            let mut stream = socket;
+            let mut buf = [0u8; 9];
 
             loop {
-                line.clear();
-
-                let bytes_read = match reader.read_line(&mut line).await {
-                    Ok(0) => {
-                        println!("Connection closed by client");
-                        return;
+                match stream.read_exact(&mut buf).await {
+                    Ok(_) => {
+                        if let Err(e) = handle_client(&buf, &mut stream, &mut database).await {
+                            eprintln!("handle_client error: {:?}", e);
+                        }
                     }
-                    Ok(n) => n,
+                    Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                        println!("Client disconnected.");
+                        break;
+                    }
                     Err(e) => {
                         eprintln!("Read error: {:?}", e);
-                        return;
+                        break;
                     }
-                };
-
-                let trimmed = line.trim_end();
-                let stream = reader.get_mut();
-                if let Err(e) = handle_client(trimmed.as_bytes(), stream, Arc::clone(&db)).await {
-                    eprintln!("handle_client error: {:?}", e);
                 }
             }
         });
     }
 }
 
-async fn handle_client(
-    data: &[u8],
-    stream: &mut TcpStream,
-    database: Arc<Mutex<BTreeMap<i32, i32>>>,
-) -> std::io::Result<()> {
-    let mut db = database.lock().await;
-    route_request(data, stream, &mut db).await
+async fn handle_client(data: &[u8], stream: &mut TcpStream, db: &mut BTreeMap<i32, i32>) -> Result<()>{
+    route_request(data, stream, db).await
 }
 
-async fn route_request(
-    data: &[u8],
-    stream: &mut TcpStream,
-    database: &mut BTreeMap<i32, i32>,
-) -> std::io::Result<()> {
-    let data = String::from_utf8(from_hex(data)).expect("Failed to convert data to UTF-8");
+async fn route_request(data: &[u8], stream: &mut TcpStream, db: &mut BTreeMap<i32, i32>) -> Result<()> {
+    if data.len() != 9 {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid message length"));
+    }
 
-    match data.chars().next() {
-        Some('I') => {
-            parse_insert(&data, database)?;
+    println!("Request: {:?}", data);
+
+    let message_type = data[0] as char;
+    let first = BigEndian::read_i32(&data[1..5]);
+    let second = BigEndian::read_i32(&data[5..9]);
+
+    match message_type {
+        'I' => {
+            println!("Inserting: {}, {}", first, second);
+            db.insert(first, second);
         }
-        Some('Q') => {
-            let result = parse_query(&data, database)?;
-            let response = format!("{}\n", result);
-            stream.write_all(response.as_bytes()).await?;
+        'Q' => {
+            println!("Querying: {}, {}", first, second);
+            let result = computer_mean(first, second, db);
+            let mut response = [0u8; 4];
+            BigEndian::write_i32(&mut response, result);
+            stream.write_all(&response).await?;
         }
         _ => {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Invalid command",
-            ));
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid command"));
         }
     }
 
     Ok(())
 }
 
-fn parse_insert(data: &str, db: &mut BTreeMap<i32, i32>) -> std::io::Result<()> {
-    let timestamp = data[1..=4].parse::<i32>().expect("Could not parse timestamp");
-    let price = data[5..=8].parse::<i32>().expect("Could not parse price");
-
-    db.insert(timestamp, price);
-    Ok(())
-}
-
-fn parse_query(data: &str, database: &mut BTreeMap<i32, i32>) -> std::io::Result<i32> {
-    let mintime = data[1..=4].parse::<i32>().expect("Could not parse mintime");
-    let maxtime = data[5..=8].parse::<i32>().expect("Could not parse maxtime");
-
-    let mut sum = 0;
-    let mut count = 0;
-
-    for (&timestamp, &price) in database.range(mintime..=maxtime) {
-        sum += price;
-        count += 1;
+fn computer_mean(mintime: i32, maxtime: i32, db: &BTreeMap<i32, i32>) -> i32 {
+    if mintime > maxtime {
+        return 0;
     }
 
-    if count == 0 {
-        Ok(0) // avoid divide-by-zero
+    let mut sum: i64 = 0;
+    let mut cnt: i64 = 0;
+
+    for (_timestamp, &price) in db.range(mintime..=maxtime) {
+        sum += price as i64;
+        cnt += 1;
+    }
+
+    if cnt == 0 {
+        0
     } else {
-        Ok(sum / count)
+        (sum / cnt) as i32
     }
-}
-
-fn from_hex(input: &[u8]) -> Vec<u8> {
-    let mut result = Vec::with_capacity(input.len() / 2);
-    for chunk in input.chunks(2) {
-        if chunk.len() < 2 {
-            panic!("Odd length hex input");
-        }
-
-        let hi = (chunk[0] as char).to_digit(16).expect("Invalid hex char") as u8;
-        let lo = (chunk[1] as char).to_digit(16).expect("Invalid hex char") as u8;
-        result.push((hi << 4) | lo);
-    }
-
-    result
 }
