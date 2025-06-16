@@ -5,6 +5,7 @@ mod challenge02;
 mod challenge03;
 mod challenge04;
 mod challenge04proto;
+mod challenge05;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -17,6 +18,7 @@ async fn main() -> std::io::Result<()> {
         "3" => challenge03::run().await?,
         "4" => challenge04::run().await?,
         "4p" => challenge04proto::run().await?,
+        "5" => challenge05::run().await?,
         _ => panic!(),
     }
 
