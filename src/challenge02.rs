@@ -1,140 +1,104 @@
-use serde::{Deserialize, Serialize};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use byteorder::{BigEndian, ByteOrder};
+use std::collections::BTreeMap;
+use std::io::Result;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
-pub async fn run() -> std::io::Result<()> {
+pub async fn run() -> Result<()> {
     let listener = TcpListener::bind("0.0.0.0:4040").await?;
-    println!("Server listening port 0.0.0.0:4040");
+    println!("Server listening on port 4040");
 
     loop {
         let (socket, addr) = listener.accept().await?;
         println!("New connection from {}", addr);
 
         tokio::spawn(async move {
-            // Wrap socket in BufReader for line by line reading
-            let mut reader = BufReader::new(socket);
-            let mut line = String::new();
+            let mut database = BTreeMap::new();
+            let mut stream = socket;
+            let mut buf = [0u8; 9];
 
             loop {
-                line.clear();
-
-                let _bytes_read = match reader.read_line(&mut line).await {
-                    Ok(0) => {
-                        println!("Connection closed by client");
-                        return;
+                match stream.read_exact(&mut buf).await {
+                    Ok(_) => {
+                        if let Err(e) = handle_client(&buf, &mut stream, &mut database).await {
+                            eprintln!("handle_client error: {:?}", e);
+                        }
                     }
-                    Ok(n) => n,
+                    Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                        println!("Client disconnected.");
+                        break;
+                    }
                     Err(e) => {
-                        eprintln!("read error: {:?}", e);
-                        return;
+                        eprintln!("Read error: {:?}", e);
+                        break;
                     }
-                };
-
-                // Trim whitespace and newline
-                let trimmed = line.trim_end();
-
-                // Handle the request, pass mutable TcpStream (unwrap from BufReader)
-                let stream = reader.get_mut();
-
-                if let Err(e) = handle_request(trimmed.as_bytes(), stream).await {
-                    eprintln!("Request error: {:?}", e);
-                    // Malformed request -> disconnect client
-                    return;
                 }
             }
         });
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Request {
-    method: String,
-    number: f64,
+async fn handle_client(
+    data: &[u8],
+    stream: &mut TcpStream,
+    db: &mut BTreeMap<i32, i32>,
+) -> Result<()> {
+    route_request(data, stream, db).await
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Response {
-    method: String,
-    prime: bool,
-}
+async fn route_request(
+    data: &[u8],
+    stream: &mut TcpStream,
+    db: &mut BTreeMap<i32, i32>,
+) -> Result<()> {
+    if data.len() != 9 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Invalid message length",
+        ));
+    }
 
-#[derive(Debug)]
-enum Answer {
-    Malformed,
-}
+    println!("Request: {:?}", data);
 
-async fn handle_request(data: &[u8], stream: &mut TcpStream) -> std::io::Result<()> {
-    // Convert bytes to &str
-    let input = match std::str::from_utf8(data) {
-        Ok(s) => s,
-        Err(_) => {
-            // Send malformed response with newline and return error to close connection
-            stream.write_all(b"{\"answer\":\"Malformed\"}\n").await?;
+    let message_type = data[0] as char;
+    let first = BigEndian::read_i32(&data[1..5]);
+    let second = BigEndian::read_i32(&data[5..9]);
+
+    match message_type {
+        'I' => {
+            println!("Inserting: {}, {}", first, second);
+            db.insert(first, second);
+        }
+        'Q' => {
+            println!("Querying: {}, {}", first, second);
+            let result = computer_mean(first, second, db);
+            let mut response = [0u8; 4];
+            BigEndian::write_i32(&mut response, result);
+            stream.write_all(&response).await?;
+        }
+        _ => {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                "Invalid UTF-8",
+                "Invalid command",
             ));
         }
-    };
-
-    match parse_request(input) {
-        Ok(response) => {
-            // Write response followed by newline
-            stream.write_all(response.as_bytes()).await?;
-            stream.write_all(b"\n").await?;
-            Ok(())
-        }
-        Err(Answer::Malformed) => {
-            // Malformed response, then close connection
-            stream.write_all(b"{\"answer\":\"Malformed\"}\n").await?;
-            Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Malformed request",
-            ))
-        }
     }
+
+    Ok(())
 }
 
-fn parse_request(input: &str) -> Result<String, Answer> {
-    // Parse JSON request
-    let request: Request = serde_json::from_str(input).map_err(|_| Answer::Malformed)?;
-
-    // Check required fields: method == "isPrime", number is a number (any JSON number, floating point allowed)
-    if request.method != "isPrime" {
-        return Err(Answer::Malformed);
+fn computer_mean(mintime: i32, maxtime: i32, db: &BTreeMap<i32, i32>) -> i32 {
+    if mintime > maxtime {
+        return 0;
     }
 
-    // According to spec: non-integers cannot be prime, so prime = false if fractional part != 0
-    let is_prime_result = if request.number.fract() != 0.0 {
-        false
-    } else {
-        is_prime(request.number as u64)
-    };
+    let mut sum: i64 = 0;
+    let mut cnt: i64 = 0;
 
-    let response = Response {
-        method: request.method,
-        prime: is_prime_result,
-    };
+    for (_timestamp, &price) in db.range(mintime..=maxtime) {
+        sum += price as i64;
+        cnt += 1;
+    }
 
-    // Serialize response JSON string
-    serde_json::to_string(&response).map_err(|_| Answer::Malformed)
-}
-
-fn is_prime(n: u64) -> bool {
-    if n <= 1 {
-        return false;
-    }
-    if n == 2 {
-        return true;
-    }
-    if n % 2 == 0 {
-        return false;
-    }
-    let sqrt_n = (n as f64).sqrt() as u64;
-    for i in (3..=sqrt_n).step_by(2) {
-        if n % i == 0 {
-            return false;
-        }
-    }
-    true
+    if cnt == 0 { 0 } else { (sum / cnt) as i32 }
 }
