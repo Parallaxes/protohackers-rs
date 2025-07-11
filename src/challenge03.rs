@@ -28,8 +28,8 @@ enum Class {
 }
 
 pub async fn run() -> Result<()> {
-    let listener = TcpListener::bind("0.0.0.0:443").await?;
-    println!("Server listening on port 443");
+    let listener = TcpListener::bind("127.0.0.1:8000").await?;
+    println!("Server listening on port 8000");
 
     let (tx, _) = broadcast::channel::<Message>(100);
     let tx = Arc::new(tx);

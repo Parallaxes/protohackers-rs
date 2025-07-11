@@ -32,7 +32,12 @@ pub async fn run() -> Result<()> {
     }
 }
 
-async fn handle_client(data: Vec<u8>, src_addr: std::net::SocketAddr, socket: Arc<UdpSocket>, db: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>) -> Result<()> {
+async fn handle_client(
+    data: Vec<u8>,
+    src_addr: std::net::SocketAddr,
+    socket: Arc<UdpSocket>,
+    db: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
+) -> Result<()> {
     if let Some(pos) = data.iter().position(|&b| b == b'=') {
         println!("Request: INSERT from {}", src_addr);
 
