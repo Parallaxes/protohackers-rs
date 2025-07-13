@@ -6,6 +6,7 @@ mod challenge02;
 mod challenge03;
 mod challenge04;
 mod challenge05;
+mod challenge06;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
