@@ -183,56 +183,56 @@ fn parse_iamdispatcher(data: &[u8]) -> Option<Message> {
     Some(Message::IAmDispatcher(IAmDispatcher { numroads, roads }))
 }
 
-mod tests {
-    use super::*;
+// mod tests {
+//     use super::*;
 
-    #[test]
-    fn test_parse_plate1() {
-        let data = [0x04, 0x55, 0x4e, 0x31, 0x58, 0x00, 0x00, 0x03, 0xe8];
-        let expected = Message::Plate(Plate {
-            plate: "UN1X".to_string(),
-            timestamp: 1000,
-        });
-        if let Some(result) = parse_plate(&data) {
-            assert_eq!(result, expected);
-        }
-    }
+//     #[test]
+//     fn test_parse_plate1() {
+//         let data = [0x04, 0x55, 0x4e, 0x31, 0x58, 0x00, 0x00, 0x03, 0xe8];
+//         let expected = Message::Plate(Plate {
+//             plate: "UN1X".to_string(),
+//             timestamp: 1000,
+//         });
+//         if let Some(result) = parse_plate(&data) {
+//             assert_eq!(result, expected);
+//         }
+//     }
 
-    #[test]
-    fn test_parse_plate2() {
-        let data = [
-            0x07, 0x52, 0x45, 0x30, 0x35, 0x42, 0x4b, 0x47, 0x00, 0x01, 0xe2, 0x40,
-        ];
-        let expected = Message::Plate(Plate {
-            plate: "RE05BKG".to_string(),
-            timestamp: 123456,
-        });
-        if let Some(result) = parse_plate(&data) {
-            assert_eq!(result, expected);
-        } else {
-            panic!("Failed!")
-        }
-    }
+//     #[test]
+//     fn test_parse_plate2() {
+//         let data = [
+//             0x07, 0x52, 0x45, 0x30, 0x35, 0x42, 0x4b, 0x47, 0x00, 0x01, 0xe2, 0x40,
+//         ];
+//         let expected = Message::Plate(Plate {
+//             plate: "RE05BKG".to_string(),
+//             timestamp: 123456,
+//         });
+//         if let Some(result) = parse_plate(&data) {
+//             assert_eq!(result, expected);
+//         } else {
+//             panic!("Failed!")
+//         }
+//     }
 
-    #[test]
-    fn test_parse_ticket1() {
-        let data = [
-            0x04, 0x55, 0x4e, 0x31, 0x58, 0x00, 0x42, 0x00, 0x64, 0x00, 0x01, 0xe2, 0x40, 0x00,
-            0x6e, 0x00, 0x01, 0xe3, 0xa8, 0x27, 0x10,
-        ];
-        let expected = Message::Ticket(Ticket {
-            plate: "UN1X".to_string(),
-            road: 66,
-            mile1: 100,
-            timestamp1: 123456,
-            mile2: 110,
-            timestamp2: 123816,
-            speed: 10000,
-        });
-        if let Some(result) = parse_ticket(&data) {
-            assert_eq!(result, expected);
-        } else {
-            panic!("Failed!")
-        }
-    }
-}
+//     #[test]
+//     fn test_parse_ticket1() {
+//         let data = [
+//             0x04, 0x55, 0x4e, 0x31, 0x58, 0x00, 0x42, 0x00, 0x64, 0x00, 0x01, 0xe2, 0x40, 0x00,
+//             0x6e, 0x00, 0x01, 0xe3, 0xa8, 0x27, 0x10,
+//         ];
+//         let expected = Message::Ticket(Ticket {
+//             plate: "UN1X".to_string(),
+//             road: 66,
+//             mile1: 100,
+//             timestamp1: 123456,
+//             mile2: 110,
+//             timestamp2: 123816,
+//             speed: 10000,
+//         });
+//         if let Some(result) = parse_ticket(&data) {
+//             assert_eq!(result, expected);
+//         } else {
+//             panic!("Failed!")
+//         }
+//     }
+// }

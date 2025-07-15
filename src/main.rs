@@ -20,6 +20,7 @@ async fn main() -> std::io::Result<()> {
         "3" => challenge03::run().await?,
         "4" => challenge04::run().await?,
         "5" => challenge05::run().await.unwrap(),
+        "6" => challenge06::challenge06::run().await.unwrap(),
         _ => panic!(),
     }
 

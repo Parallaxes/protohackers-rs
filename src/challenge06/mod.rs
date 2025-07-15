@@ -1,5 +1,9 @@
-pub mod challenge06;
+pub mod protocol;
+pub mod client;
 pub mod db;
-pub mod utils;
+pub mod challenge06;
 
-pub use challenge06::run;
+// Re-exports for convenience
+pub use protocol::{Message, ParseError, parse};
+pub use client::{Client, ClientType};
+pub use db::Database;
