@@ -4,12 +4,23 @@ use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use super::client::*;
+use crate::challenge06::protocol::IAmCamera;
 
+use super::{
+    client::{Client, ClientType},
+    protocol::Plate,
+};
 
 #[derive(Debug)]
 pub enum AssignError {
     InvalidClientType,
+}
+
+#[derive(Debug, Clone)]
+pub struct PlateObservation {
+    pub plate: Plate,
+    pub camera: IAmCamera,
+    pub camera_id: u32,
 }
 
 pub struct Database<T, U> {
@@ -56,24 +67,5 @@ impl<T, U> Database<T, U> {
 }
 
 impl Database<SocketAddr, Client> {
-    pub async fn assign_id(
-        &self,
-        peer_addr: SocketAddr,
-        client_type: ClientType,
-    ) -> Result<(), AssignError> {
-        let mut db_guard = self.db.lock().await;
-        let new_id = Self::generate_next_id(&db_guard);
-        let new_client = Client::new(new_id, client_type);
-
-        db_guard.insert(peer_addr, new_client);
-        Ok(())
-    }
-
-    pub fn generate_next_id(db: &BTreeMap<SocketAddr, Client>) -> u32 {
-        db.values()
-            .map(|client| client.get_id())
-            .max()
-            .map(|max_id| max_id + 1)
-            .unwrap_or(0)
-    }
+    
 }

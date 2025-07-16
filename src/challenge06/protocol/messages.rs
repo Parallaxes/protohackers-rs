@@ -44,7 +44,7 @@ pub enum Message {
 /// 
 /// Cameras send this when they observe a vehicle passing their location.
 /// Timestamps are Unix timestamps (seconds since 1970-01-01).
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Plate {
     /// Vehicle number plate (uppercase alphanumeric)
     pub plate: String,
@@ -99,7 +99,7 @@ pub struct Heartbeat {}
 /// Sent by camera clients to identify themselves and provide their
 /// location and speed limit information. Must be sent before the
 /// camera can report any plate observations.
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct IAmCamera {
     /// Road number this camera monitors
     pub road: u16,
