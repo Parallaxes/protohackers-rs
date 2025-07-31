@@ -1,5 +1,5 @@
 //! Binary protocol parsing for the Speed Camera System.
-//! 
+//!
 //! This module handles parsing of incoming binary messages from clients.
 //! The protocol uses big-endian byte order and follows a type-length-value
 //! format for strings.
@@ -53,55 +53,57 @@ impl std::error::Error for ParseError {}
 // Helper functions for reading primitive types
 
 /// Read a big-endian `u16` from the data at the current cursor position.
-/// 
+///
 /// Advances the cursor by 2 bytes on success.
 fn read_u16_be(data: &[u8], cursor: &mut usize) -> Result<u16, ParseError> {
-    let bytes = data.get(*cursor..*cursor + 2)
+    let bytes = data
+        .get(*cursor..*cursor + 2)
         .ok_or(ParseError::InsufficientData)?;
     *cursor += 2;
     Ok(u16::from_be_bytes(bytes.try_into().unwrap()))
 }
 
 /// Read a big-endian `u32` from the data at the current cursor position.
-/// 
+///
 /// Advances the cursor by 4 bytes on success.
 fn read_u32_be(data: &[u8], cursor: &mut usize) -> Result<u32, ParseError> {
-    let bytes = data.get(*cursor..*cursor + 4)
+    let bytes = data
+        .get(*cursor..*cursor + 4)
         .ok_or(ParseError::InsufficientData)?;
     *cursor += 4;
     Ok(u32::from_be_bytes(bytes.try_into().unwrap()))
 }
 
 /// Read a length-prefixed string from the data at the current cursor position.
-/// 
+///
 /// Format: `[length: u8][data: u8; length]`
-/// 
+///
 /// Advances the cursor by `1 + length` bytes on success.
 fn read_string(data: &[u8], cursor: &mut usize) -> Result<String, ParseError> {
     let len = *data.get(*cursor).ok_or(ParseError::InsufficientData)? as usize;
     *cursor += 1;
-    
-    let bytes = data.get(*cursor..*cursor + len)
+
+    let bytes = data
+        .get(*cursor..*cursor + len)
         .ok_or(ParseError::InsufficientData)?;
     *cursor += len;
-    
-    String::from_utf8(bytes.to_vec())
-        .map_err(|_| ParseError::InvalidUtf8)
+
+    String::from_utf8(bytes.to_vec()).map_err(|_| ParseError::InvalidUtf8)
 }
 
 /// Parse a complete message from binary data.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `data` - Raw message bytes including the message type byte
-/// 
+///
 /// # Returns
-/// 
+///
 /// * `Ok(Message)` - Successfully parsed message
 /// * `Err(ParseError)` - Malformed data or unsupported message type
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust
 /// let plate_data = [0x20, 0x04, b'T', b'E', b'S', b'T', 0x00, 0x00, 0x03, 0xe8];
 /// let message = parse(&plate_data)?;
@@ -115,7 +117,7 @@ pub fn parse(data: &[u8]) -> Result<Message, ParseError> {
     match data[0] {
         MSG_ERROR => Err(ParseError::InvalidMessageType(MSG_ERROR)), // Clients shouldn't send Error
         MSG_PLATE => parse_plate(&data[1..]),
-        MSG_TICKET => Err(ParseError::InvalidMessageType(MSG_TICKET)), // Clients shouldn't send Ticket  
+        MSG_TICKET => Err(ParseError::InvalidMessageType(MSG_TICKET)), // Clients shouldn't send Ticket
         MSG_WANT_HEARTBEAT => parse_wantheartbeat(&data[1..]),
         MSG_IAM_CAMERA => parse_iamcamera(&data[1..]),
         MSG_IAM_DISPATCHER => parse_iamdispatcher(&data[1..]),
@@ -124,16 +126,13 @@ pub fn parse(data: &[u8]) -> Result<Message, ParseError> {
 }
 
 /// Parse a Plate message (0x20) from message data.
-fn parse_plate(data: &[u8]) -> Result<Message, ParseError> { 
+fn parse_plate(data: &[u8]) -> Result<Message, ParseError> {
     let mut cursor = 0;
 
     let plate = read_string(data, &mut cursor)?;
     let timestamp = read_u32_be(data, &mut cursor)?;
 
-    Ok(Message::Plate(Plate {
-        plate,
-        timestamp,
-    }))
+    Ok(Message::Plate(Plate { plate, timestamp }))
 }
 
 /// Parse a WantHeartbeat message (0x40) from message data.
@@ -152,18 +151,14 @@ fn parse_iamcamera(data: &[u8]) -> Result<Message, ParseError> {
     let mile = read_u16_be(data, &mut cursor)?;
     let limit = read_u16_be(data, &mut cursor)?;
 
-    Ok(Message::IAmCamera(IAmCamera {
-        road,
-        mile,
-        limit,
-    }))
+    Ok(Message::IAmCamera(IAmCamera { road, mile, limit }))
 }
 
 /// Parse an IAmDispatcher message (0x81) from message data.
 fn parse_iamdispatcher(data: &[u8]) -> Result<Message, ParseError> {
     let mut roads = Vec::new();
     let mut cursor = 0;
-    
+
     let numroads = *data.get(cursor).ok_or(ParseError::InsufficientData)?;
     cursor += 1;
 
@@ -172,10 +167,7 @@ fn parse_iamdispatcher(data: &[u8]) -> Result<Message, ParseError> {
         roads.push(road);
     }
 
-    Ok(Message::IAmDispatcher(IAmDispatcher {
-        numroads,
-        roads,
-    }))
+    Ok(Message::IAmDispatcher(IAmDispatcher { numroads, roads }))
 }
 
 // Note: parse_ticket is implemented but not used since clients don't send tickets

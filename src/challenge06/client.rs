@@ -1,5 +1,5 @@
 //! Client management for the SCS.
-//! 
+//!
 //! Tracks client connection state and identification information.
 
 /// Represents a fully identified client with assigned ID.
@@ -13,13 +13,13 @@ pub struct Client {
 #[derive(PartialEq, Debug, Clone)]
 pub enum ClientType {
     /// Camera client that reports plate observations
-    Camera { road: u16, mile: u16, limit: u16},
+    Camera { road: u16, mile: u16, limit: u16 },
     /// Dispatcher client that receives tickets for specific roads
     Dispatcher { roads: Vec<u16> },
 }
 
 /// Tracks the current state of a client connection
-/// 
+///
 /// Used before the client has fully identified itself and been assigned an ID.
 #[derive(Debug)]
 pub struct ClientState {
@@ -29,6 +29,8 @@ pub struct ClientState {
     pub has_heartbeat: bool,
     /// Assigned client ID (None until identification complete)
     pub client_id: Option<u32>,
+    /// Interval in deciseconds
+    pub heartbeat_interval: Option<u32>,
 }
 
 impl ClientState {
@@ -38,6 +40,7 @@ impl ClientState {
             client_type: None,
             has_heartbeat: false,
             client_id: None,
+            heartbeat_interval: None,
         }
     }
 
@@ -64,7 +67,7 @@ impl Client {
     pub fn new(id: u32, client_type: ClientType) -> Self {
         Client { id, client_type }
     }
-    
+
     /// Get the client's assigned ID.
     pub fn get_id(&self) -> u32 {
         self.id

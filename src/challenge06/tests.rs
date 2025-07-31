@@ -2,17 +2,15 @@
 mod tests {
     use super::*;
     use crate::challenge06::{
+        challenge06::{CLIENT_ID_COUNTER, ProtocolError, process_message, validate_message},
         client::{ClientState, ClientType},
-        protocol::{IAmCamera, Message, Plate},
-        challenge06::{process_message, validate_message, ProtocolError, CLIENT_ID_COUNTER},
         db::PlateObservation,
+        protocol::{IAmCamera, Message, Plate},
     };
     use std::collections::{BTreeMap, HashMap};
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::sync::Arc;
     use tokio::sync::Mutex;
-
-
 
     fn create_test_addr(port: u16) -> SocketAddr {
         SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port)
@@ -68,12 +66,7 @@ mod tests {
 
         // First observation
         let plate_msg1 = create_test_plate("ABC123", 1000);
-        let result = process_message(
-            Message::Plate(plate_msg1),
-            addr,
-            &clients,
-            &plates,
-        ).await;
+        let result = process_message(Message::Plate(plate_msg1), addr, &clients, &plates).await;
         assert!(result.is_ok());
 
         // Setup second camera at mile 110 (10 miles away)
@@ -88,12 +81,7 @@ mod tests {
         // Second observation 10 minutes later (600 seconds)
         // Speed: 10 miles / 600 seconds * 3600 = 60 mph (exactly at limit)
         let plate_msg2 = create_test_plate("ABC123", 1600);
-        let result = process_message(
-            Message::Plate(plate_msg2),
-            addr2,
-            &clients,
-            &plates,
-        ).await;
+        let result = process_message(Message::Plate(plate_msg2), addr2, &clients, &plates).await;
         assert!(result.is_ok());
 
         // Check that both observations are stored
@@ -117,12 +105,7 @@ mod tests {
 
         // First observation
         let plate_msg1 = create_test_plate("SPEED123", 1000);
-        let result = process_message(
-            Message::Plate(plate_msg1),
-            addr,
-            &clients,
-            &plates,
-        ).await;
+        let result = process_message(Message::Plate(plate_msg1), addr, &clients, &plates).await;
         assert!(result.is_ok());
 
         // Setup second camera at mile 110
@@ -137,18 +120,13 @@ mod tests {
         // Second observation 5 minutes later (300 seconds)
         // Speed: 10 miles / 300 seconds * 3600 = 120 mph (violation!)
         let plate_msg2 = create_test_plate("SPEED123", 1300);
-        let result = process_message(
-            Message::Plate(plate_msg2),
-            addr2,
-            &clients,
-            &plates,
-        ).await;
+        let result = process_message(Message::Plate(plate_msg2), addr2, &clients, &plates).await;
         assert!(result.is_ok());
 
         // Verify both observations are stored
         let plates_guard = plates.lock().await;
         assert_eq!(plates_guard.len(), 2);
-        
+
         // Check that we can find both observations
         let key1 = ("SPEED123".to_string(), 1000);
         let key2 = ("SPEED123".to_string(), 1300);
@@ -181,21 +159,11 @@ mod tests {
 
         // Same plate on different roads
         let plate_msg1 = create_test_plate("ABC123", 1000);
-        let result1 = process_message(
-            Message::Plate(plate_msg1),
-            addr1,
-            &clients,
-            &plates,
-        ).await;
+        let result1 = process_message(Message::Plate(plate_msg1), addr1, &clients, &plates).await;
         assert!(result1.is_ok());
 
         let plate_msg2 = create_test_plate("ABC123", 1100);
-        let result2 = process_message(
-            Message::Plate(plate_msg2),
-            addr2,
-            &clients,
-            &plates,
-        ).await;
+        let result2 = process_message(Message::Plate(plate_msg2), addr2, &clients, &plates).await;
         assert!(result2.is_ok());
 
         // Should have both observations but no violation (different roads)
@@ -221,20 +189,10 @@ mod tests {
         let plate_msg1 = create_test_plate("ABC123", 1000);
         let plate_msg2 = create_test_plate("ABC123", 1100);
 
-        let result1 = process_message(
-            Message::Plate(plate_msg1),
-            addr,
-            &clients,
-            &plates,
-        ).await;
+        let result1 = process_message(Message::Plate(plate_msg1), addr, &clients, &plates).await;
         assert!(result1.is_ok());
 
-        let result2 = process_message(
-            Message::Plate(plate_msg2),
-            addr,
-            &clients,
-            &plates,
-        ).await;
+        let result2 = process_message(Message::Plate(plate_msg2), addr, &clients, &plates).await;
         assert!(result2.is_ok());
 
         let plates_guard = plates.lock().await;
@@ -250,9 +208,7 @@ mod tests {
         // Setup dispatcher instead of camera
         let mut client_map = clients.lock().await;
         let mut state = ClientState::new();
-        let client_type = ClientType::Dispatcher {
-            roads: vec![123],
-        };
+        let client_type = ClientType::Dispatcher { roads: vec![123] };
         state.set_client_type(client_type);
         state.client_id = Some(42);
         client_map.insert(addr, state);
@@ -260,12 +216,7 @@ mod tests {
 
         // Try to send plate message from dispatcher
         let plate_msg = create_test_plate("ABC123", 1000);
-        let result = process_message(
-            Message::Plate(plate_msg),
-            addr,
-            &clients,
-            &plates,
-        ).await;
+        let result = process_message(Message::Plate(plate_msg), addr, &clients, &plates).await;
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not a camera"));
@@ -284,15 +235,15 @@ mod tests {
         drop(client_map);
 
         let plate_msg = create_test_plate("ABC123", 1000);
-        let result = process_message(
-            Message::Plate(plate_msg),
-            addr,
-            &clients,
-            &plates,
-        ).await;
+        let result = process_message(Message::Plate(plate_msg), addr, &clients, &plates).await;
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not fully identified"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("not fully identified")
+        );
     }
 
     #[tokio::test]
@@ -302,9 +253,30 @@ mod tests {
 
         // Setup three cameras on same road
         let cameras = vec![
-            (create_test_addr(8001), IAmCamera { road: 123, mile: 100, limit: 60 }),
-            (create_test_addr(8002), IAmCamera { road: 123, mile: 110, limit: 60 }),
-            (create_test_addr(8003), IAmCamera { road: 123, mile: 120, limit: 60 }),
+            (
+                create_test_addr(8001),
+                IAmCamera {
+                    road: 123,
+                    mile: 100,
+                    limit: 60,
+                },
+            ),
+            (
+                create_test_addr(8002),
+                IAmCamera {
+                    road: 123,
+                    mile: 110,
+                    limit: 60,
+                },
+            ),
+            (
+                create_test_addr(8003),
+                IAmCamera {
+                    road: 123,
+                    mile: 120,
+                    limit: 60,
+                },
+            ),
         ];
 
         for (addr, camera) in &cameras {
@@ -320,12 +292,7 @@ mod tests {
 
         for (camera_idx, plate_msg) in observations {
             let addr = cameras[camera_idx].0;
-            let result = process_message(
-                Message::Plate(plate_msg),
-                addr,
-                &clients,
-                &plates,
-            ).await;
+            let result = process_message(Message::Plate(plate_msg), addr, &clients, &plates).await;
             assert!(result.is_ok());
         }
 
@@ -352,19 +319,14 @@ mod tests {
         ];
 
         for plate_msg in observations {
-            let result = process_message(
-                Message::Plate(plate_msg),
-                addr,
-                &clients,
-                &plates,
-            ).await;
+            let result = process_message(Message::Plate(plate_msg), addr, &clients, &plates).await;
             assert!(result.is_ok());
         }
 
         // Verify BTreeMap maintains sorted order
         let plates_guard = plates.lock().await;
         let keys: Vec<_> = plates_guard.keys().collect();
-        
+
         // Should be sorted by (plate, timestamp)
         let expected_order = vec![
             ("ABC123".to_string(), 1000),
@@ -394,40 +356,34 @@ mod tests {
         let plate_msg1 = create_test_plate("ABC123", 1000);
         let plate_msg2 = create_test_plate("ABC123", 1000); // Same timestamp
 
-        let result1 = process_message(
-            Message::Plate(plate_msg1),
-            addr,
-            &clients,
-            &plates,
-        ).await;
+        let result1 = process_message(Message::Plate(plate_msg1), addr, &clients, &plates).await;
         assert!(result1.is_ok());
 
         // Second message with same timestamp should be handled gracefully
         // (though this would likely be filtered out by timestamp != check)
-        let result2 = process_message(
-            Message::Plate(plate_msg2),
-            addr,
-            &clients,
-            &plates,
-        ).await;
+        let result2 = process_message(Message::Plate(plate_msg2), addr, &clients, &plates).await;
         assert!(result2.is_ok());
     }
 
     #[tokio::test]
     async fn test_validate_message_functionality() {
         // Test all validation scenarios
-        
+
         // Camera can send plate messages
         let camera_state = {
             let mut state = ClientState::new();
-            state.set_client_type(ClientType::Camera { road: 123, mile: 100, limit: 60 });
+            state.set_client_type(ClientType::Camera {
+                road: 123,
+                mile: 100,
+                limit: 60,
+            });
             state.client_id = Some(1);
             state
         };
-        
+
         let plate_msg = Message::Plate(create_test_plate("ABC123", 1000));
         assert!(validate_message(plate_msg, &camera_state).is_ok());
-        
+
         // Dispatcher cannot send plate messages
         let dispatcher_state = {
             let mut state = ClientState::new();
@@ -435,32 +391,43 @@ mod tests {
             state.client_id = Some(2);
             state
         };
-        
+
         let plate_msg = Message::Plate(create_test_plate("ABC123", 1000));
         let result = validate_message(plate_msg, &dispatcher_state);
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ProtocolError::NotIdentified));
-        
+
         // Unidentified client cannot send plate messages
         let unidentified_state = ClientState::new();
         let plate_msg = Message::Plate(create_test_plate("ABC123", 1000));
         let result = validate_message(plate_msg, &unidentified_state);
         assert!(result.is_err());
-        
+
         // Cannot identify twice
         let identified_state = camera_state;
-        let camera_msg = Message::IAmCamera(IAmCamera { road: 456, mile: 200, limit: 70 });
+        let camera_msg = Message::IAmCamera(IAmCamera {
+            road: 456,
+            mile: 200,
+            limit: 70,
+        });
         let result = validate_message(camera_msg, &identified_state);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), ProtocolError::AlreadyIdentified));
-        
+        assert!(matches!(
+            result.unwrap_err(),
+            ProtocolError::AlreadyIdentified
+        ));
+
         // Cannot request heartbeat twice
         let mut heartbeat_state = ClientState::new();
         heartbeat_state.has_heartbeat = true;
-        let heartbeat_msg = Message::WantHeartbeat(crate::challenge06::protocol::WantHeartbeat { interval: 100 });
+        let heartbeat_msg =
+            Message::WantHeartbeat(crate::challenge06::protocol::WantHeartbeat { interval: 100 });
         let result = validate_message(heartbeat_msg, &heartbeat_state);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), ProtocolError::DuplicateHeartbeatRequest));
+        assert!(matches!(
+            result.unwrap_err(),
+            ProtocolError::DuplicateHeartbeatRequest
+        ));
     }
 
     #[tokio::test]
@@ -489,7 +456,7 @@ mod tests {
         let client_state = client_guard.get(&addr).unwrap();
         assert!(client_state.is_identified());
         assert!(client_state.client_id.is_some());
-        
+
         match &client_state.client_type {
             Some(ClientType::Camera { road, mile, limit }) => {
                 assert_eq!(*road, 42);
@@ -525,7 +492,7 @@ mod tests {
         let client_state = client_guard.get(&addr).unwrap();
         assert!(client_state.is_identified());
         assert!(client_state.client_id.is_some());
-        
+
         match &client_state.client_type {
             Some(ClientType::Dispatcher { roads }) => {
                 assert_eq!(*roads, vec![10, 20, 30]);
@@ -584,7 +551,12 @@ mod tests {
 
         let result = process_message(ticket_msg, addr, &clients, &plates).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Unexpected message type"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Unexpected message type")
+        );
     }
 
     #[tokio::test]
@@ -594,17 +566,39 @@ mod tests {
 
         // Test with very large speed (should still work mathematically)
         let addr1 = create_test_addr(8001);
-        setup_camera_client(&clients, addr1, IAmCamera { road: 1, mile: 0, limit: 60 }).await;
-        
+        setup_camera_client(
+            &clients,
+            addr1,
+            IAmCamera {
+                road: 1,
+                mile: 0,
+                limit: 60,
+            },
+        )
+        .await;
+
         let addr2 = create_test_addr(8002);
-        setup_camera_client(&clients, addr2, IAmCamera { road: 1, mile: 100, limit: 60 }).await;
+        setup_camera_client(
+            &clients,
+            addr2,
+            IAmCamera {
+                road: 1,
+                mile: 100,
+                limit: 60,
+            },
+        )
+        .await;
 
         // 100 miles in 1 second = 360,000 mph
         let plate1 = create_test_plate("ROCKET", 1000);
         let plate2 = create_test_plate("ROCKET", 1001);
 
-        process_message(Message::Plate(plate1), addr1, &clients, &plates).await.unwrap();
-        process_message(Message::Plate(plate2), addr2, &clients, &plates).await.unwrap();
+        process_message(Message::Plate(plate1), addr1, &clients, &plates)
+            .await
+            .unwrap();
+        process_message(Message::Plate(plate2), addr2, &clients, &plates)
+            .await
+            .unwrap();
 
         let plates_guard = plates.lock().await;
         assert_eq!(plates_guard.len(), 2);
@@ -620,21 +614,16 @@ mod tests {
 
         // Multiple different plates at same camera
         let plates_to_test = vec!["CAR001", "CAR002", "CAR003", "TRUCK1", "BIKE99"];
-        
+
         for (i, plate_str) in plates_to_test.iter().enumerate() {
             let plate_msg = create_test_plate(plate_str, 1000 + i as u32);
-            let result = process_message(
-                Message::Plate(plate_msg),
-                addr,
-                &clients,
-                &plates,
-            ).await;
+            let result = process_message(Message::Plate(plate_msg), addr, &clients, &plates).await;
             assert!(result.is_ok());
         }
 
         let plates_guard = plates.lock().await;
         assert_eq!(plates_guard.len(), 5);
-        
+
         // Verify all plates are stored with correct keys
         for (i, plate_str) in plates_to_test.iter().enumerate() {
             let key = (plate_str.to_string(), 1000 + i as u32);
@@ -649,18 +638,40 @@ mod tests {
 
         // Camera at mile 110 (higher mile marker)
         let addr1 = create_test_addr(8001);
-        setup_camera_client(&clients, addr1, IAmCamera { road: 1, mile: 110, limit: 60 }).await;
-        
+        setup_camera_client(
+            &clients,
+            addr1,
+            IAmCamera {
+                road: 1,
+                mile: 110,
+                limit: 60,
+            },
+        )
+        .await;
+
         // Camera at mile 100 (lower mile marker)
         let addr2 = create_test_addr(8002);
-        setup_camera_client(&clients, addr2, IAmCamera { road: 1, mile: 100, limit: 60 }).await;
+        setup_camera_client(
+            &clients,
+            addr2,
+            IAmCamera {
+                road: 1,
+                mile: 100,
+                limit: 60,
+            },
+        )
+        .await;
 
         // Vehicle going backwards (from mile 110 to mile 100)
         let plate1 = create_test_plate("REVERSE", 1000);
         let plate2 = create_test_plate("REVERSE", 1300); // 5 minutes later
 
-        process_message(Message::Plate(plate1), addr1, &clients, &plates).await.unwrap();
-        process_message(Message::Plate(plate2), addr2, &clients, &plates).await.unwrap();
+        process_message(Message::Plate(plate1), addr1, &clients, &plates)
+            .await
+            .unwrap();
+        process_message(Message::Plate(plate2), addr2, &clients, &plates)
+            .await
+            .unwrap();
 
         // Should still calculate speed correctly using absolute difference
         // 10 miles / 300 seconds * 3600 = 120 mph (violation)
@@ -691,7 +702,9 @@ mod tests {
 
             // Send camera message
             let camera_msg = Message::IAmCamera(create_test_camera());
-            process_message(camera_msg, *addr, &clients, &plates).await.unwrap();
+            process_message(camera_msg, *addr, &clients, &plates)
+                .await
+                .unwrap();
 
             // Capture the assigned ID
             {
@@ -705,9 +718,12 @@ mod tests {
         // Verify IDs are unique and incrementing
         expected_ids.sort();
         for i in 1..expected_ids.len() {
-            assert!(expected_ids[i] > expected_ids[i-1], "IDs should be unique and incrementing");
+            assert!(
+                expected_ids[i] > expected_ids[i - 1],
+                "IDs should be unique and incrementing"
+            );
         }
-        
+
         // Verify all IDs are present
         assert_eq!(expected_ids.len(), 3);
     }
@@ -726,7 +742,9 @@ mod tests {
         setup_camera_client(&clients, addr, camera).await;
 
         let plate_msg = create_test_plate("TEST123", 1234567890);
-        process_message(Message::Plate(plate_msg), addr, &clients, &plates).await.unwrap();
+        process_message(Message::Plate(plate_msg), addr, &clients, &plates)
+            .await
+            .unwrap();
 
         // Verify the stored observation has correct data
         let plates_guard = plates.lock().await;
@@ -752,22 +770,17 @@ mod tests {
         // Add many observations to test memory handling
         for i in 0..1000 {
             let plate_msg = create_test_plate(&format!("PLATE{:04}", i % 100), 1000 + i);
-            let result = process_message(
-                Message::Plate(plate_msg),
-                addr,
-                &clients,
-                &plates,
-            ).await;
+            let result = process_message(Message::Plate(plate_msg), addr, &clients, &plates).await;
             assert!(result.is_ok());
         }
 
         let plates_guard = plates.lock().await;
         assert_eq!(plates_guard.len(), 1000);
-        
+
         // Verify BTreeMap maintains ordering even with large dataset
         let keys: Vec<_> = plates_guard.keys().collect();
         for i in 1..keys.len() {
-            assert!(keys[i-1] <= keys[i], "BTreeMap ordering violated");
+            assert!(keys[i - 1] <= keys[i], "BTreeMap ordering violated");
         }
     }
 
@@ -779,11 +792,46 @@ mod tests {
 
         // Setup highway with 5 cameras every 10 miles
         let cameras = vec![
-            (create_test_addr(8001), IAmCamera { road: 101, mile: 0, limit: 65 }),
-            (create_test_addr(8002), IAmCamera { road: 101, mile: 10, limit: 65 }),
-            (create_test_addr(8003), IAmCamera { road: 101, mile: 20, limit: 65 }),
-            (create_test_addr(8004), IAmCamera { road: 101, mile: 30, limit: 65 }),
-            (create_test_addr(8005), IAmCamera { road: 101, mile: 40, limit: 65 }),
+            (
+                create_test_addr(8001),
+                IAmCamera {
+                    road: 101,
+                    mile: 0,
+                    limit: 65,
+                },
+            ),
+            (
+                create_test_addr(8002),
+                IAmCamera {
+                    road: 101,
+                    mile: 10,
+                    limit: 65,
+                },
+            ),
+            (
+                create_test_addr(8003),
+                IAmCamera {
+                    road: 101,
+                    mile: 20,
+                    limit: 65,
+                },
+            ),
+            (
+                create_test_addr(8004),
+                IAmCamera {
+                    road: 101,
+                    mile: 30,
+                    limit: 65,
+                },
+            ),
+            (
+                create_test_addr(8005),
+                IAmCamera {
+                    road: 101,
+                    mile: 40,
+                    limit: 65,
+                },
+            ),
         ];
 
         for (addr, camera) in &cameras {
@@ -794,10 +842,8 @@ mod tests {
         let vehicles = vec![
             // Law-abiding vehicle: 65mph exactly
             ("LAW001", vec![(0, 0), (1, 553), (2, 1106), (3, 1659)]), // ~65mph
-            
             // Speeding vehicle: 85mph
             ("SPEED1", vec![(0, 1000), (1, 1424), (2, 1847)]), // ~85mph
-            
             // Variable speed vehicle
             ("VAR001", vec![(0, 2000), (1, 2400), (3, 3200)]), // Mix of speeds
         ];
@@ -806,13 +852,9 @@ mod tests {
             for (camera_idx, timestamp) in observations {
                 let addr = cameras[camera_idx].0;
                 let plate_msg = create_test_plate(plate, timestamp as u32);
-                
-                let result = process_message(
-                    Message::Plate(plate_msg),
-                    addr,
-                    &clients,
-                    &plates,
-                ).await;
+
+                let result =
+                    process_message(Message::Plate(plate_msg), addr, &clients, &plates).await;
                 assert!(result.is_ok());
             }
         }
@@ -825,17 +867,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_error_function() {
-        use tokio::io::AsyncWriteExt;
         use std::io::Cursor;
-        
+        use tokio::io::AsyncWriteExt;
+
         // Mock stream for testing
         let mut mock_stream: Vec<u8> = Vec::new();
-        
+
         // This would require making send_error public or creating a test wrapper
         // For now, test the error format manually
         let error_msg = "test error";
         let expected = format!("\x10{}{}", error_msg.len() as u8 as char, error_msg);
-        
+
         assert_eq!(expected.len(), 1 + 1 + error_msg.len()); // type + length + message
         assert_eq!(expected.as_bytes()[0], 0x10); // Error message type
         assert_eq!(expected.as_bytes()[1], error_msg.len() as u8); // Length

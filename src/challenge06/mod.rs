@@ -1,12 +1,7 @@
-pub mod protocol;
+pub mod challenge06;
 pub mod client;
 pub mod db;
-pub mod challenge06;
+pub mod protocol;
 
 #[cfg(test)]
 mod tests;
-
-// Re-exports for convenience
-pub use protocol::{Message, ParseError, parse};
-pub use client::{Client, ClientType};
-pub use db::Database;

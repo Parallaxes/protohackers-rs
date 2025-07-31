@@ -6,7 +6,7 @@
 /// Error message sent by server when client violates protocol (Server->Client)
 pub const MSG_ERROR: u8 = 0x10;
 
-/// Number plate observation report (Client->Server) 
+/// Number plate observation report (Client->Server)
 pub const MSG_PLATE: u8 = 0x20;
 
 /// Speed violation ticket (Server->Client)

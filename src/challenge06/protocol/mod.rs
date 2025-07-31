@@ -4,4 +4,4 @@ mod parsing;
 
 pub use constants::*;
 pub use messages::*;
-pub use parsing::{parse, ParseError};
+pub use parsing::{ParseError, parse};
